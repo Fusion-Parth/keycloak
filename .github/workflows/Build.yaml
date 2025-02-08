@@ -1,0 +1,36 @@
+name: Build and Setup Pipeline
+
+on:
+  workflow_dispatch: # Trigger manually on demand
+
+jobs:
+  build:
+    runs-on: [self-hosted, keyclock] # Use your self-hosted runner with the label Librechat
+      # Add additional steps here as needed
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Download Keycloak
+        run: |
+          curl -L https://github.com/keycloak/keycloak/releases/download/26.1.1/keycloak-26.1.1.zip -o keycloak.zip
+          unzip keycloak.zip -d ${{ github.workspace }}
+          mv ${{ github.workspace }}/keycloak-26.1.1 ${{ github.workspace }}/keycloak
+
+      - name: Start Keycloak in Development Mode
+        run: |
+          nohup ${{ github.workspace }}/keycloak/bin/kc.sh start-dev &
+          sleep 20 # Wait for Keycloak to start
+
+      - name: Create Admin User
+        run: |
+          ${{ github.workspace }}/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password admin
+          ${{ github.workspace }}/keycloak/bin/kcadm.sh create users -r master -s username=admin -s enabled=true
+          ${{ github.workspace }}/keycloak/bin/kcadm.sh set-password -r master --username admin --new-password admin
